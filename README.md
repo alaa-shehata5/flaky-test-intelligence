@@ -42,6 +42,28 @@ Ports and credentials are overridable via a local `.env` file; see
 `.env.example`. The backend container applies Alembic migrations on startup
 and refuses to serve if they fail.
 
+## Run in Codespaces
+
+```text
+Open repository
+  ↓
+Create Codespace (Code → Codespaces → Create codespace on main)
+  ↓
+docker compose up --build
+  ↓
+open dashboard (forwarded port 3000)
+```
+
+The dev container ships Python 3.12, Node 24, and Docker-in-Docker, and
+forwards ports `3000` (dashboard), `8000` (API/Swagger), `5173` (Vite dev)
+and `5432` (Postgres). For local frontend development instead of the
+prebuilt image:
+
+```bash
+npm --prefix frontend install
+npm --prefix frontend run dev   # http://localhost:5173
+```
+
 ## CLI (`flakyctl`)
 
 ```bash
