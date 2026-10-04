@@ -166,7 +166,7 @@ scores 0 — slow or variable duration alone never flags flaky.
 ## Testing
 
 ```bash
-cd backend && python -m pytest            # 76 passed (sqlite) + opt-in PG gate
+cd backend && python -m pytest            # 77 passed (sqlite) + opt-in PG gate
 cd frontend && npm test                    # 35 tests, jsdom
 ```
 

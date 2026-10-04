@@ -300,6 +300,17 @@ def test_upload_rejects_missing_project(client):
     assert response.json()["error"] == "VALIDATION_ERROR"
 
 
+def test_upload_rejects_missing_run_number(client):
+    response = client.post(
+        "/api/runs/upload",
+        files={"file": ("results.xml", SINGLE_SUITE, "text/xml")},
+        data={"project": "sec"},
+    )
+    assert response.status_code == 422
+    assert response.json()["error"] == "VALIDATION_ERROR"
+    assert "request_id" in response.json()
+
+
 def test_upload_persists_queryable_history(client):
     _upload(client, SINGLE_SUITE, run_number="21")
     _upload(client, SINGLE_SUITE, run_number="22")

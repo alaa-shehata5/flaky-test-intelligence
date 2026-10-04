@@ -23,7 +23,7 @@ Topics: `qa`, `software-testing`, `test-automation`, `flaky-tests`,
 ## SDET
 
 - Test infrastructure: JUnit ingestion pipeline (secure parsing, identity,
-  persistence) with 76 passing backend tests including a malicious-XML battery.
+  persistence) with 77 passing backend tests including a malicious-XML battery.
 - Automation architecture: layered FastAPI service (routers → services →
   SQLAlchemy), Alembic migrations verified on PostgreSQL and SQLite.
 - Data processing: cumulative per-execution scoring, windowed trend
