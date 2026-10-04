@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass
+from datetime import datetime
 
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -12,7 +14,7 @@ from app.analysis import classification, scoring, statistics
 from app.analysis.classification import Classification, TrendResult
 from app.analysis.statistics import ExecutionInput
 from app.core.config import Settings, get_settings
-from app.models import TestCase, TestExecution
+from app.models import TestCase, TestExecution, TestRun
 
 
 @dataclass(frozen=True)
@@ -167,17 +169,19 @@ def analyze_test_case(
     session: Session,
     test_case_id: int,
     config: AnalysisConfig | None = None,
+    run_ids: Collection[int] | None = None,
 ) -> TestAnalysis:
     test_case = session.get(TestCase, test_case_id)
     if test_case is None:
         raise ValueError(f"test case {test_case_id} not found")
-    executions = list(
-        session.scalars(
-            select(TestExecution)
-            .where(TestExecution.test_case_id == test_case_id)
-            .order_by(TestExecution.executed_at, TestExecution.id)
-        )
+    query = (
+        select(TestExecution)
+        .where(TestExecution.test_case_id == test_case_id)
+        .order_by(TestExecution.executed_at, TestExecution.id)
     )
+    if run_ids is not None:
+        query = query.where(TestExecution.run_id.in_(run_ids))
+    executions = list(session.scalars(query))
     result = analyze_inputs(_inputs(executions), config)
     durations = result["durations"]
     trends = result["trends"]
@@ -215,8 +219,80 @@ def analyze_project(
     session: Session,
     project_id: int,
     config: AnalysisConfig | None = None,
+    run_ids: Collection[int] | None = None,
 ) -> list[TestAnalysis]:
     case_ids = session.scalars(
         select(TestCase.id).where(TestCase.project_id == project_id).order_by(TestCase.id)
     ).all()
-    return [analyze_test_case(session, case_id, config) for case_id in case_ids]
+    return [analyze_test_case(session, case_id, config, run_ids) for case_id in case_ids]
+
+
+def run_ids_for_branch(session: Session, project_id: int, branch: str) -> list[int]:
+    """Run ids of one project's branch (empty when the branch has no runs)."""
+    return list(
+        session.scalars(
+            select(TestRun.id).where(TestRun.project_id == project_id, TestRun.branch == branch)
+        )
+    )
+
+
+@dataclass(frozen=True)
+class ScoredExecution:
+    run_id: int
+    run_number: int
+    branch: str
+    status: str
+    duration: float
+    executed_at: datetime
+    score: float
+    failure_message: str | None
+    failure_type: str | None
+
+
+def test_history(
+    session: Session,
+    test_case_id: int,
+    config: AnalysisConfig | None = None,
+) -> list[ScoredExecution]:
+    """Execution history with the cumulative flakiness score at each point."""
+    config = config or AnalysisConfig.from_settings(get_settings())
+    if session.get(TestCase, test_case_id) is None:
+        raise ValueError(f"test case {test_case_id} not found")
+    rows = session.execute(
+        select(TestExecution, TestRun.run_number, TestRun.branch)
+        .join(TestRun, TestRun.id == TestExecution.run_id)
+        .where(TestExecution.test_case_id == test_case_id)
+        .order_by(TestExecution.executed_at, TestExecution.id)
+    ).all()
+    inputs: list[ExecutionInput] = []
+    history: list[ScoredExecution] = []
+    for execution, run_number, branch in rows:
+        inputs.append(
+            ExecutionInput(
+                status=execution.status,
+                duration=execution.duration,
+                executed_at=execution.executed_at,
+                id=execution.id or 0,
+            )
+        )
+        basic = statistics.compute_basic(inputs)
+        score = scoring.flakiness_score(
+            basic.pass_rate,
+            inputs,
+            [e.duration for e in inputs if e.status != "skipped"],
+            config.recency_half_life_runs,
+        )
+        history.append(
+            ScoredExecution(
+                run_id=execution.run_id,
+                run_number=run_number,
+                branch=branch,
+                status=execution.status,
+                duration=execution.duration,
+                executed_at=execution.executed_at,
+                score=score,
+                failure_message=execution.failure_message,
+                failure_type=execution.failure_type,
+            )
+        )
+    return history

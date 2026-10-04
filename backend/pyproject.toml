@@ -42,6 +42,9 @@ exclude = ["alembic/versions"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+# B008 flags function calls in argument defaults, but FastAPI's canonical
+# Depends()/Query()/File() declarations require exactly that pattern.
+ignore = ["B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

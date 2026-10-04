@@ -7,8 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
+from app.api.dashboard import router as dashboard_router
 from app.api.errors import register_error_handlers
+from app.api.flaky import router as flaky_router
+from app.api.projects import router as projects_router
 from app.api.runs import router as runs_router
+from app.api.tests import router as tests_router
 from app.core.config import get_settings
 from app.core.logging import clear_request_id, get_logger, set_request_id, setup_logging
 
@@ -47,7 +51,11 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     register_error_handlers(application)
+    application.include_router(projects_router)
     application.include_router(runs_router)
+    application.include_router(tests_router)
+    application.include_router(flaky_router)
+    application.include_router(dashboard_router)
 
     return application
 
