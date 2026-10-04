@@ -23,6 +23,8 @@ from app.ingestion.schemas import TestCaseResult
 
 MAX_JUNIT_BYTES = 5 * 1024 * 1024
 MAX_FAILURE_MESSAGE_CHARS = 4000
+MAX_FAILURE_TYPE_CHARS = 255
+MAX_IDENTITY_CHARS = 1024
 
 
 class JUnitParseError(ValueError):
@@ -78,6 +80,8 @@ def _failure_detail(case_el: ET.Element) -> tuple[str, str | None, str | None]:
     if message is not None and len(message) > MAX_FAILURE_MESSAGE_CHARS:
         message = message[:MAX_FAILURE_MESSAGE_CHARS] + "…[truncated]"
     failure_type = node.get("type") or _localname(node.tag)
+    if len(failure_type) > MAX_FAILURE_TYPE_CHARS:
+        failure_type = failure_type[:MAX_FAILURE_TYPE_CHARS]
     return status, message, failure_type
 
 
@@ -94,6 +98,8 @@ def parse_junit(xml_bytes: bytes) -> ParsedJUnit:
         raise JUnitParseError(f"rejected unsafe XML: {exc}") from exc
     except ET.ParseError as exc:
         raise JUnitParseError(f"malformed XML: {exc}") from exc
+    except RecursionError as exc:
+        raise JUnitParseError("XML nesting too deep to parse safely") from exc
 
     suites = _iter_suites(root)
     cases: list[TestCaseResult] = []
@@ -106,6 +112,10 @@ def parse_junit(xml_bytes: bytes) -> ParsedJUnit:
                     f"testcase missing required 'name' attribute (suite='{suite_name}')"
                 )
             classname = case_el.get("classname") or suite_name or "unknown"
+            if len(test_name) > MAX_IDENTITY_CHARS or len(classname) > MAX_IDENTITY_CHARS:
+                raise JUnitParseError("test identity exceeds 1024 characters")
+            if suite_name != "unknown" and len(suite_name) > 255:
+                raise JUnitParseError("suite name exceeds 255 characters")
             status, failure_message, failure_type = _failure_detail(case_el)
             cases.append(
                 TestCaseResult(
