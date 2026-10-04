@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Sample JUnit file for manual upload testing.
+     Upload with project sample and run 1, via the API or flakyctl ingest. -->
+<testsuites>
+  <testsuite name="auth" tests="3">
+    <testcase classname="tests.test_auth" name="test_valid_login" time="0.12"/>
+    <testcase classname="tests.test_auth" name="test_expired_token" time="0.34">
+      <failure type="AssertionError" message="expected 200">assert status == 200</failure>
+    </testcase>
+    <testcase classname="tests.test_auth" name="test_sso" time="0.0">
+      <skipped/>
+    </testcase>
+  </testsuite>
+  <testsuite name="billing" tests="2">
+    <testcase classname="tests.test_billing" name="test_charge" time="0.55"/>
+    <testcase classname="tests.test_billing" name="test_refund" time="1.02">
+      <error type="ConnectionError">could not connect to gateway</error>
+    </testcase>
+  </testsuite>
+</testsuites>

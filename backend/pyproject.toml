@@ -24,6 +24,9 @@ dev = [
     "ruff>=0.5",
 ]
 
+[project.scripts]
+flakyctl = "app.cli:main"
+
 [build-system]
 requires = ["setuptools>=70"]
 build-backend = "setuptools.build_meta"

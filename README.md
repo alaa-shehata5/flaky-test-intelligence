@@ -22,6 +22,15 @@ curl localhost:8000/health
 
 Full one-command startup (`docker compose up --build`) lands in Phase 10.
 
+## CLI (`flakyctl`)
+
+```bash
+flakyctl seed-demo                                   # 50 deterministic CI runs x 30 tests
+flakyctl ingest demo/sample-results.xml --project demo-project --run-number 51
+flakyctl analyze                                     # classifications + precision/recall
+flakyctl list-flaky --min-score 40 --limit 20
+```
+
 ## Project structure
 
 ```text
