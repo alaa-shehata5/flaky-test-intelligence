@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Env / secrets — never commit .env
+.env
+*.db
+*.sqlite*
+
+# Alembic
+alembic/versions/__pycache__/
+
+# Frontend (Phase 7+)
+node_modules/
+dist/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
