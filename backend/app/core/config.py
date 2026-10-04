@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     slow_test_threshold: float = Field(
         default=5.0, ge=0.0, description="Seconds above which a test counts as slow."
     )
+    consistently_failing_threshold: float = Field(
+        default=0.95,
+        ge=0.0,
+        le=1.0,
+        description="Failure rate at/above which a test is consistently failing.",
+    )
 
     @field_validator("cors_origins", mode="before")
     @classmethod
