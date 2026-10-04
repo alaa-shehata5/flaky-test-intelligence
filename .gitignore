@@ -16,7 +16,7 @@ test-results.xml
 *.sqlite*
 
 # Generated demo artifacts (reproduce with `flakyctl seed-demo`)
-demo/ground_truth.json
+**/ground_truth.json
 
 # Alembic
 alembic/versions/__pycache__/

@@ -6,6 +6,15 @@ collects JUnit results across CI runs, stores execution history in
 PostgreSQL, scores every test with a documented statistical engine, and
 presents the answers in a QA observability dashboard.
 
+![Dashboard overview](docs/screenshots/01-dashboard-overview.png)
+
+More evidence: [flaky ranking](docs/screenshots/02-flaky-ranking.png),
+[test detail](docs/screenshots/03-test-detail.png),
+[execution history](docs/screenshots/04-execution-history.png),
+[API docs](docs/screenshots/06-api-docs.png). All screenshots are captured
+from the working system (see [docs/demo-script.md](docs/demo-script.md));
+nothing is mocked or fabricated.
+
 ## Problem
 
 CI dashboards show per-run pass/fail. They don't answer the questions that
