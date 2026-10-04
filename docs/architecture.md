@@ -66,8 +66,10 @@ backend/
 
 All settings come from the environment (see `.env.example`); `.env` is never
 committed. Local development points at `localhost` PostgreSQL; Docker
-Compose overrides hostnames via service DNS. The frontend bakes
-`VITE_API_URL` in at build time (dev default `http://localhost:8000`).
+Compose overrides hostnames via service DNS. Dashboard API calls use a
+same-origin URL: Vite proxies `/api` to the local backend in development,
+and nginx proxies `/api` to the backend service in Docker. `VITE_API_URL`
+is an optional override for deployments that use a separate API origin.
 
 ## Deployment
 

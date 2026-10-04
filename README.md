@@ -11,9 +11,11 @@ presents the answers in a QA observability dashboard.
 More evidence: [flaky ranking](docs/screenshots/02-flaky-ranking.png),
 [test detail](docs/screenshots/03-test-detail.png),
 [execution history](docs/screenshots/04-execution-history.png),
-[API docs](docs/screenshots/06-api-docs.png). All screenshots are captured
-from the working system (see [docs/demo-script.md](docs/demo-script.md));
-nothing is mocked or fabricated.
+[trend charts](docs/screenshots/05-trend-charts.png),
+[API docs](docs/screenshots/06-api-docs.png), and
+[mobile dashboard](docs/screenshots/07-mobile-dashboard.png). These screenshots
+were captured from the working system (see [docs/demo-script.md](docs/demo-script.md));
+they are not mockups.
 
 ## Problem
 
@@ -84,7 +86,7 @@ Frontend:
 
 ```bash
 npm --prefix frontend install
-cp frontend/.env.example frontend/.env   # VITE_API_URL, default http://localhost:8000
+cp frontend/.env.example frontend/.env   # optional development proxy/API overrides
 npm --prefix frontend run dev             # http://localhost:5173
 ```
 
@@ -164,7 +166,7 @@ scores 0 — slow or variable duration alone never flags flaky.
 ## Testing
 
 ```bash
-cd backend && python -m pytest            # 75 tests (sqlite) + opt-in PG gate
+cd backend && python -m pytest            # 76 passed (sqlite) + opt-in PG gate
 cd frontend && npm test                    # 35 tests, jsdom
 ```
 
@@ -192,10 +194,6 @@ All demo failure messages are tagged `(synthetic demo data)`.
 - Single-tenant, no authentication or RBAC.
 - Trend/summary endpoints paginate at 200 items per request; very large
   suites need keyset pagination (roadmap).
-- The frontend bakes `VITE_API_URL` in at build time; Codespaces users rely
-  on forwarded-port defaults or rebuild with their forwarded API URL.
-- Container-to-container networking was verified on standard Docker hosts;
-  one sandbox used during development blocks it (documented in Phase 10).
 
 ## Roadmap
 

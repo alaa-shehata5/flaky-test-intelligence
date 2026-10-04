@@ -1,17 +1,14 @@
 # Portfolio Summary
 
-What this project demonstrates, by discipline. Suggested repository name:
-`flaky-test-intelligence`. If the repo still shows a placeholder
-description, apply:
+Repository: `flaky-test-intelligence`.
 
-```bash
-gh repo edit --description "Flaky test detection and CI analytics platform that analyzes historical JUnit results, scores test instability, tracks trends, and visualizes QA reliability." \
-  --add-topic qa --add-topic software-testing --add-topic test-automation \
-  --add-topic flaky-tests --add-topic pytest --add-topic fastapi \
-  --add-topic postgresql --add-topic react --add-topic typescript \
-  --add-topic docker --add-topic github-actions --add-topic ci-cd \
-  --add-topic sdet --add-topic devops
-```
+Description: Flaky test detection and CI analytics platform that analyzes
+historical JUnit results, scores test instability, tracks trends, and
+visualizes QA reliability.
+
+Topics: `qa`, `software-testing`, `test-automation`, `flaky-tests`,
+`pytest`, `fastapi`, `postgresql`, `react`, `typescript`, `docker`,
+`github-actions`, `ci-cd`, `sdet`, `devops`.
 
 ## QA
 
@@ -26,7 +23,7 @@ gh repo edit --description "Flaky test detection and CI analytics platform that 
 ## SDET
 
 - Test infrastructure: JUnit ingestion pipeline (secure parsing, identity,
-  persistence) with 75 backend tests including a malicious-XML battery.
+  persistence) with 76 passing backend tests including a malicious-XML battery.
 - Automation architecture: layered FastAPI service (routers → services →
   SQLAlchemy), Alembic migrations verified on PostgreSQL and SQLite.
 - Data processing: cumulative per-execution scoring, windowed trend

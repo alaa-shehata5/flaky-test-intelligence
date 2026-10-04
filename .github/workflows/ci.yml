@@ -75,7 +75,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build backend image
-        run: docker build ./backend
-      - name: Build frontend image
-        run: docker build ./frontend
+      - name: Start complete Compose stack
+        run: docker compose up --build -d
+      - name: Verify frontend, API proxy, and seeded demo
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:3000/ >/dev/null \
+              && curl --fail --silent http://localhost:8000/health >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl --fail --silent http://localhost:3000/ >/dev/null
+          curl --fail --silent http://localhost:3000/api/projects >/dev/null
+          docker compose exec -T backend flakyctl seed-demo
+          curl --fail --silent http://localhost:3000/api/dashboard/summary \
+            | python3 -c 'import json,sys; assert json.load(sys.stdin)["total_tests"] == 30'
+      - name: Stop Compose stack
+        if: always()
+        run: docker compose down --volumes --remove-orphans

@@ -8,7 +8,7 @@ Dashboard, Tests, Flaky Tests, Runs, and Test Detail pages.
 
 ```bash
 npm install
-cp .env.example .env   # VITE_API_URL, default http://localhost:8000
+cp .env.example .env   # optional VITE_DEV_API_TARGET or VITE_API_URL override
 npm run dev            # http://localhost:5173
 ```
 

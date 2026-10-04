@@ -25,9 +25,7 @@ describe('apiFetch', () => {
     });
     expect(result).toEqual({ total: 1 });
     const url = String(fetchMock.mock.calls[0][0]);
-    expect(url).toContain('/api/tests?');
-    expect(url).toContain('q=login');
-    expect(url).toContain('limit=20');
+    expect(url).toBe('/api/tests?q=login&limit=20');
     expect(url).not.toContain('offset');
   });
 

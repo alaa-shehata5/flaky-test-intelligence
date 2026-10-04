@@ -13,7 +13,7 @@ export class ApiError extends Error {
   }
 }
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+const BASE_URL = import.meta.env.VITE_API_URL ?? '';
 
 function toQuery(params: Record<string, string | number | undefined>): string {
   const search = new URLSearchParams();
@@ -36,7 +36,8 @@ export async function apiFetch<T>(
       ...init,
     });
   } catch {
-    throw new ApiError(0, 'NETWORK_ERROR', `Cannot reach API at ${BASE_URL}`, '-');
+    const target = BASE_URL || 'the dashboard origin';
+    throw new ApiError(0, 'NETWORK_ERROR', `Cannot reach API at ${target}`, '-');
   }
   if (!response.ok) {
     let code = 'UNKNOWN_ERROR';
