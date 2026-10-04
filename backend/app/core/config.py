@@ -25,9 +25,12 @@ class Settings(BaseSettings):
     )
     app_env: str = Field(default="local", description="Runtime environment name.")
     log_level: str = Field(default="INFO", description="Logging level.")
-    cors_origins: list[str] = Field(
-        default_factory=lambda: ["http://localhost:5173"],
-        description="Allowed CORS origins.",
+    # Keep the raw env value as a string so Pydantic Settings does not try to
+    # JSON-decode comma-separated values before our validator can split them.
+    cors_origins_value: str = Field(
+        default="http://localhost:5173",
+        alias="CORS_ORIGINS",
+        description="Comma-separated allowed CORS origins.",
     )
     min_sample_size: int = Field(
         default=5, ge=1, description="Minimum executions before classification."
@@ -54,13 +57,10 @@ class Settings(BaseSettings):
         description="Failure rate at/above which a test is consistently failing.",
     )
 
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def _split_cors_origins(cls, value: object) -> object:
-        # Allow comma-separated string: CORS_ORIGINS="http://a,http://b"
-        if isinstance(value, str):
-            return [o.strip() for o in value.split(",") if o.strip()]
-        return value
+    @property
+    def cors_origins(self) -> list[str]:
+        """Allowed origins parsed from the comma-separated environment value."""
+        return [origin.strip() for origin in self.cors_origins_value.split(",") if origin.strip()]
 
     @field_validator("log_level", mode="before")
     @classmethod

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Index, String
+from sqlalchemy import DateTime, ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -18,6 +18,9 @@ if TYPE_CHECKING:
 class TestCase(Base):
     __tablename__ = "test_cases"
     __table_args__ = (
+        UniqueConstraint(
+            "project_id", "classname", "test_name", name="uq_test_cases_project_identity"
+        ),
         Index("ix_test_cases_project_class_name", "project_id", "classname", "test_name"),
         Index("ix_test_cases_last_seen", "last_seen_at"),
     )

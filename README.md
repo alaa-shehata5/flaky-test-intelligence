@@ -11,11 +11,11 @@ QA intelligence in a React dashboard.
 ## Quick start (current phase)
 
 ```bash
-# backend (once Phase 1 lands)
+# from the repository root
 python -m venv .venv && source .venv/bin/activate
-pip install -e "backend[dev]"
+python -m pip install -e "backend[dev]"
 cp .env.example .env
-alembic upgrade head
+alembic -c backend/alembic.ini upgrade head
 uvicorn app.main:app --reload --app-dir backend
 curl localhost:8000/health
 ```

@@ -99,6 +99,21 @@ def test_unique_test_identity_enforced(db: Session):
     assert other_case.unique_key == "other-project::tests.test_auth::test_valid_login"
 
 
+def test_same_project_logical_identity_cannot_use_a_different_key(db: Session):
+    project = _project(db)
+    _case(db, project)
+    duplicate = TestCase(
+        project_id=project.id,
+        classname="tests.test_auth",
+        test_name="test_valid_login",
+        unique_key="incorrect-but-distinct-key",
+    )
+    db.add(duplicate)
+    with pytest.raises(IntegrityError):
+        db.commit()
+    db.rollback()
+
+
 def test_run_number_unique_per_project(db: Session):
     project = _project(db)
     _run(db, project, run_number=7)
