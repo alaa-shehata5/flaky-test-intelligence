@@ -33,7 +33,7 @@ describe('flaky tests page', () => {
     expect(screen.getByLabelText('Filter by project')).toBeInTheDocument();
     expect(await screen.findByText('test_session_refresh')).toBeInTheDocument();
     expect(vi.mocked(listFlakyTests)).toHaveBeenCalledWith(
-      expect.objectContaining({ sort: 'score_desc', limit: 200 }),
+      expect.objectContaining({ sort: 'score_desc', limit: 15 }),
     );
   });
 });

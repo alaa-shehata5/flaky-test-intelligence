@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../api/client';
@@ -23,7 +23,7 @@ function renderTable() {
 describe('flaky table', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockedList.mockResolvedValue({ items: sampleFlakyItems, total: 2, limit: 200, offset: 0 });
+    mockedList.mockResolvedValue({ items: sampleFlakyItems, total: 2, limit: 15, offset: 0 });
   });
 
   it('renders ranked rows with all columns', async () => {
@@ -36,21 +36,29 @@ describe('flaky table', () => {
     expect(screen.getByText('Avg duration')).toBeInTheDocument();
   });
 
-  it('filters client-side as the user types', async () => {
+  it('searches server-side as the user types', async () => {
     renderTable();
     await screen.findByText('test_session_refresh');
     fireEvent.change(screen.getByLabelText('Search flaky tests'), {
       target: { value: 'payment' },
     });
-    await waitFor(() => {
-      expect(screen.queryByText('test_session_refresh')).not.toBeInTheDocument();
-    });
-    expect(screen.getByText('test_payment_timeout')).toBeInTheDocument();
-    expect(mockedList).toHaveBeenCalledTimes(1);
+    await screen.findByText('test_session_refresh');
+    expect(mockedList).toHaveBeenLastCalledWith(
+      expect.objectContaining({ q: 'payment', offset: 0 }),
+    );
+  });
+
+  it('paginates server-side', async () => {
+    mockedList.mockResolvedValue({ items: sampleFlakyItems, total: 30, limit: 15, offset: 0 });
+    renderTable();
+    await screen.findByText('test_session_refresh');
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await screen.findByText(/Page 2 of 2/);
+    expect(mockedList).toHaveBeenLastCalledWith(expect.objectContaining({ limit: 15, offset: 15 }));
   });
 
   it('shows an empty state when nothing matches', async () => {
-    mockedList.mockResolvedValue({ items: [], total: 0, limit: 200, offset: 0 });
+    mockedList.mockResolvedValue({ items: [], total: 0, limit: 15, offset: 0 });
     renderTable();
     expect(await screen.findByText(/No flaky tests match/)).toBeInTheDocument();
   });
@@ -60,7 +68,7 @@ describe('flaky table', () => {
     renderTable();
     expect(await screen.findByRole('alert')).toHaveTextContent('Boom');
     expect(screen.getByText(/Request ID: req-9/)).toBeInTheDocument();
-    mockedList.mockResolvedValue({ items: sampleFlakyItems, total: 2, limit: 200, offset: 0 });
+    mockedList.mockResolvedValue({ items: sampleFlakyItems, total: 2, limit: 15, offset: 0 });
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByText('test_session_refresh')).toBeInTheDocument();
   });
