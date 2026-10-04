@@ -20,7 +20,27 @@ uvicorn app.main:app --reload --app-dir backend
 curl localhost:8000/health
 ```
 
-Full one-command startup (`docker compose up --build`) lands in Phase 10.
+## Run everything (Docker)
+
+```bash
+docker compose up --build
+```
+
+Then open:
+
+- Dashboard: http://localhost:3000
+- API: http://localhost:8000/docs
+- Health: http://localhost:8000/health
+
+Seed demo data once the backend is up:
+
+```bash
+docker compose exec backend flakyctl seed-demo
+```
+
+Ports and credentials are overridable via a local `.env` file; see
+`.env.example`. The backend container applies Alembic migrations on startup
+and refuses to serve if they fail.
 
 ## CLI (`flakyctl`)
 

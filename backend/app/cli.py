@@ -18,7 +18,7 @@ from app.analysis.service import AnalysisConfig, analyze_test_case
 from app.core.config import get_settings
 from app.demo.evaluation import evaluate
 from app.demo.generator import DEFAULT_PROJECT, DEFAULT_RUNS, MAX_RUNS, MIN_RUNS, seed_demo
-from app.ingestion.parser import JUnitParseError, parse_junit
+from app.ingestion.parser import MAX_JUNIT_BYTES, JUnitParseError, parse_junit
 from app.ingestion.schemas import TestRunResult
 from app.ingestion.service import DuplicateRunError, persist_run
 from app.models import Project, TestCase
@@ -30,11 +30,21 @@ def resolve_db_url(explicit: str | None = None) -> str:
     return explicit or os.environ.get("DATABASE_URL") or get_settings().database_url
 
 
+def _alembic_ini() -> Path:
+    """Locate alembic.ini in a dev checkout (backend/) or container (/app)."""
+    for ini in (BACKEND_DIR / "alembic.ini", Path("/app/alembic.ini")):
+        if ini.is_file():
+            return ini
+    raise RuntimeError(
+        "alembic.ini not found; expected it next to the backend package or at /app/alembic.ini"
+    )
+
+
 def ensure_schema(db_url: str) -> None:
-    ini = BACKEND_DIR / "alembic.ini"
+    ini = _alembic_ini()
     cfg = Config(str(ini))
     cfg.set_main_option("sqlalchemy.url", db_url)
-    cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
+    cfg.set_main_option("script_location", str(ini.parent / "alembic"))
     alembic_command.upgrade(cfg, "head")
 
 
@@ -59,7 +69,9 @@ def cmd_ingest(
     environment: str | None = None,
 ) -> dict:
     try:
-        parsed = parse_junit(xml_path.read_bytes())
+        with xml_path.open("rb") as report:
+            raw = report.read(MAX_JUNIT_BYTES + 1)
+        parsed = parse_junit(raw)
     except JUnitParseError as exc:
         raise RuntimeError(f"invalid JUnit file: {exc}") from exc
     summary = persist_run(
