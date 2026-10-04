@@ -104,6 +104,7 @@ def is_persistently_flaky(windows: list[Classification], min_flaky_windows: int 
 @dataclass(frozen=True)
 class TrendResult:
     pass_rate_delta: float
+    failure_rate_delta: float
     duration_median_delta: float
     score_delta: float
 
@@ -127,6 +128,7 @@ def compute_trends(
     )
     return TrendResult(
         pass_rate_delta=new_basic.pass_rate - old_basic.pass_rate,
+        failure_rate_delta=new_basic.failure_rate - old_basic.failure_rate,
         duration_median_delta=new_durations.median - old_durations.median,
         score_delta=new_score - old_score,
     )

@@ -111,6 +111,7 @@ class TestDetailOut(BaseModel):
     persistently_flaky: bool
     is_slow: bool
     pass_rate_delta: float
+    failure_rate_delta: float
     duration_delta: float
     score_delta: float
 

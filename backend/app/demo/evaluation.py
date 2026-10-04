@@ -26,11 +26,14 @@ def evaluate(
     predicted_flaky: dict[str, bool],
     ground_truth: dict[str, str],
 ) -> EvalResult:
-    keys = [k for k in ground_truth if k in predicted_flaky]
+    # Ground truth defines the evaluation population. A known test absent from
+    # predictions is a negative prediction and therefore a false negative when
+    # that test is labeled flaky.
+    keys = list(ground_truth)
     tp = tn = fp = fn = 0
     for key in keys:
         actual = ground_truth[key] == "flaky"
-        predicted = predicted_flaky[key]
+        predicted = predicted_flaky.get(key, False)
         if actual and predicted:
             tp += 1
         elif not actual and not predicted:

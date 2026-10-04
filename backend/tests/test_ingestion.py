@@ -165,6 +165,18 @@ def test_persist_run_rejects_duplicate_run(db_session):
     assert db_session.scalar(select(func.count()).select_from(TestRun)) == 1
 
 
+def test_persist_run_rejects_conflicting_duplicates(db_session):
+    from app.ingestion.service import ConflictingDuplicateTestError
+
+    parsed = parse_junit(SINGLE_SUITE)
+    altered = parsed.cases[0].model_copy(update={"status": "failed"})
+    with pytest.raises(ConflictingDuplicateTestError):
+        persist_run(
+            db_session,
+            TestRunResult(project="demo-project", run_number=1, cases=[parsed.cases[0], altered]),
+        )
+
+
 @pytest.fixture()
 def client():
     engine = create_engine(
@@ -235,6 +247,18 @@ def test_upload_rejects_empty_file(client):
     response = _upload(client, b"", run_number="12")
     assert response.status_code == 400
     assert response.json()["error"] == "INVALID_JUNIT_FILE"
+
+
+def test_upload_rejects_conflicting_duplicate_records(client):
+    xml = (
+        b'<testsuite name="s">'
+        b'<testcase classname="a" name="t" time="0.1"/>'
+        b'<testcase classname="a" name="t" time="0.1"><failure>boom</failure></testcase>'
+        b"</testsuite>"
+    )
+    response = _upload(client, xml, run_number="30")
+    assert response.status_code == 400
+    assert response.json()["error"] == "CONFLICTING_TEST_RECORDS"
 
 
 def test_upload_rejects_oversized_file(client):

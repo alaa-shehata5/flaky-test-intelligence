@@ -196,6 +196,7 @@ def test_persistently_flaky_detection():
 def test_trends_improving_and_regressing():
     improving = classification.compute_trends(_inputs(["failed"] * 10), _inputs(["passed"] * 10))
     assert improving.pass_rate_delta == 1.0
+    assert improving.failure_rate_delta == -1.0
     assert improving.score_delta < 0
 
     regressing = classification.compute_trends(_inputs(["passed"] * 10), _inputs(["failed"] * 10))

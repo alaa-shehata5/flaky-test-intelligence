@@ -9,12 +9,16 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ingestion.identity import build_unique_key
-from app.ingestion.schemas import TestRunResult
+from app.ingestion.schemas import TestCaseResult, TestRunResult
 from app.models import Project, TestCase, TestExecution, TestRun
 
 
 class DuplicateRunError(ValueError):
     """Raised when the same (project, run_number) is ingested twice."""
+
+
+class ConflictingDuplicateTestError(ValueError):
+    """Raised when duplicate records for one test disagree on the result."""
 
 
 @dataclass
@@ -56,16 +60,32 @@ def persist_run(
             f"run {result.run_number} for project '{result.project}' already exists"
         )
 
-    # Deduplicate repeated records of the same logical test: keep first.
-    seen: set[tuple[str, str]] = set()
+    # Collapse exact duplicate outcomes, but never let XML ordering silently
+    # choose between contradictory records for the same logical test.
+    seen: dict[tuple[str, str], TestCaseResult] = {}
     unique_cases = []
     duplicates = 0
     for case in result.cases:
         key = (case.classname, case.test_name)
         if key in seen:
+            first = seen[key]
+            if (
+                case.status,
+                case.duration,
+                case.failure_message,
+                case.failure_type,
+            ) != (
+                first.status,
+                first.duration,
+                first.failure_message,
+                first.failure_type,
+            ):
+                raise ConflictingDuplicateTestError(
+                    f"conflicting duplicate results for test '{case.classname}::{case.test_name}'"
+                )
             duplicates += 1
             continue
-        seen.add(key)
+        seen[key] = case
         unique_cases.append(case)
 
     run = TestRun(

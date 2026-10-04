@@ -65,6 +65,7 @@ class TestAnalysis(BaseModel):
     persistently_flaky: bool
     is_slow: bool
     pass_rate_delta: float
+    failure_rate_delta: float
     duration_delta: float
     score_delta: float
 
@@ -210,6 +211,7 @@ def analyze_test_case(
         persistently_flaky=result["persistently_flaky"],
         is_slow=result["is_slow"],
         pass_rate_delta=trends.pass_rate_delta,
+        failure_rate_delta=trends.failure_rate_delta,
         duration_delta=trends.duration_median_delta,
         score_delta=trends.score_delta,
     )

@@ -123,6 +123,7 @@ rule, exactly as intended.
 Each history is split in half (older vs. recent) and compared:
 
 - `pass_rate_delta` = recent pass rate − older pass rate
+- `failure_rate_delta` = recent failure rate − older failure rate
 - `duration_delta` = recent median − older median
 - `score_delta` = recent score − older score
 

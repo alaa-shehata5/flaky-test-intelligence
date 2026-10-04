@@ -13,7 +13,11 @@ from app.api.schemas import RunListOut, RunOut
 from app.db.session import get_db
 from app.ingestion.parser import MAX_JUNIT_BYTES, JUnitParseError, parse_junit
 from app.ingestion.schemas import TestRunResult
-from app.ingestion.service import DuplicateRunError, persist_run
+from app.ingestion.service import (
+    ConflictingDuplicateTestError,
+    DuplicateRunError,
+    persist_run,
+)
 from app.models import Project, TestRun
 
 router = APIRouter(prefix="/api/runs", tags=["runs"])
@@ -100,7 +104,10 @@ def upload_run(
             "Only JUnit XML files (.xml) are accepted.",
             status_code=400,
         )
-    raw = file.file.read()
+    # Read at most one byte beyond the accepted size. Calling read() without a
+    # bound allows an oversized multipart upload to consume arbitrary memory
+    # before it is rejected.
+    raw = file.file.read(MAX_JUNIT_BYTES + 1)
     if len(raw) > MAX_JUNIT_BYTES:
         raise ApiError(
             "FILE_TOO_LARGE",
@@ -129,6 +136,8 @@ def upload_run(
         summary = persist_run(db, result)
     except DuplicateRunError as exc:
         raise ApiError("DUPLICATE_RUN", str(exc), status_code=409) from exc
+    except ConflictingDuplicateTestError as exc:
+        raise ApiError("CONFLICTING_TEST_RECORDS", str(exc), status_code=400) from exc
 
     return {
         "run_id": summary.run_id,
