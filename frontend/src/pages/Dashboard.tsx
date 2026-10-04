@@ -1,42 +1,100 @@
-import { Link } from 'react-router-dom';
-import { getSummary } from '../api/endpoints';
+import { useState } from 'react';
+import { getSummary, listFlakyTests, listProjects, listRuns, listTests } from '../api/endpoints';
+import { KpiCards, summaryKpis } from '../components/Badges';
+import {
+  DurationTrend,
+  OutcomeDonut,
+  PassRateTrend,
+  SeverityBars,
+  TopFlakyBars,
+} from '../components/Charts';
+import { DashboardFilters, type FilterValues } from '../components/Filters';
+import { FlakyTable } from '../components/FlakyTable';
 import { EmptyState, ErrorState, Loading } from '../components/States';
 import { useApi } from '../hooks/useApi';
 
 export function Dashboard() {
-  const { data, loading, error, retry } = useApi(() => getSummary());
+  const [filters, setFilters] = useState<FilterValues>({});
+  const summary = useApi(
+    () => getSummary({ project_id: filters.projectId, branch: filters.branch }),
+    [filters.projectId, filters.branch],
+  );
+  const projects = useApi(() => listProjects(), []);
+  const allRuns = useApi(
+    () => listRuns({ project_id: filters.projectId, limit: 200 }),
+    [filters.projectId],
+  );
+  const scopedRuns = useApi(
+    () => listRuns({ project_id: filters.projectId, branch: filters.branch, limit: 200 }),
+    [filters.projectId, filters.branch],
+  );
+  const scopedTests = useApi(
+    () => listTests({ project_id: filters.projectId, branch: filters.branch, limit: 200 }),
+    [filters.projectId, filters.branch],
+  );
+  const topFlaky = useApi(
+    () =>
+      listFlakyTests({
+        project_id: filters.projectId,
+        branch: filters.branch,
+        minimum_score: filters.minScore,
+        limit: 8,
+      }),
+    [filters.projectId, filters.branch, filters.minScore],
+  );
 
-  if (loading) return <Loading label="Loading dashboard…" />;
-  if (error)
-    return <ErrorState message={error.message} requestId={error.requestId} onRetry={retry} />;
-  if (!data) return <EmptyState message="No summary available." />;
-
-  const rows: Array<[string, number | string]> = [
-    ['Total tests', data.total_tests],
-    ['CI runs', data.total_runs],
-    ['Stable tests', data.stable_tests],
-    ['Suspected flaky', data.suspected_flaky_tests],
-    ['Highly flaky', data.highly_flaky_tests],
-    ['Consistently failing', data.consistently_failing_tests],
-    ['Slow tests', data.slow_tests],
-    ['Newly flaky', data.newly_flaky_tests],
-    ['Average pass rate', `${(data.average_pass_rate * 100).toFixed(1)}%`],
-  ];
+  const branches = [...new Set((allRuns.data?.items ?? []).map((run) => run.branch))].sort();
 
   return (
     <section>
       <h1>Dashboard</h1>
-      <dl className="kpis">
-        {rows.map(([label, value]) => (
-          <div key={label} className="kpi">
-            <dt>{label}</dt>
-            <dd>{value}</dd>
-          </div>
-        ))}
-      </dl>
-      <p>
-        <Link to="/flaky">View flaky tests →</Link>
-      </p>
+      <DashboardFilters
+        projects={projects.data?.items ?? []}
+        branches={branches}
+        value={filters}
+        onChange={setFilters}
+      />
+
+      {summary.loading && <Loading label="Loading summary…" />}
+      {summary.error && (
+        <ErrorState
+          message={summary.error.message}
+          requestId={summary.error.requestId}
+          onRetry={summary.retry}
+        />
+      )}
+      {summary.data && <KpiCards kpis={summaryKpis(summary.data)} />}
+      {summary.data && summary.data.total_tests === 0 && (
+        <EmptyState message="No tests in scope. Adjust filters or seed demo data." />
+      )}
+
+      {scopedRuns.data && scopedTests.data && (
+        <div className="chart-grid">
+          <OutcomeDonut runs={scopedRuns.data.items} />
+          <SeverityBars tests={scopedTests.data.items} />
+          <PassRateTrend runs={scopedRuns.data.items} />
+          <DurationTrend runs={scopedRuns.data.items} />
+        </div>
+      )}
+
+      <h2>Top flaky tests</h2>
+      {topFlaky.loading && <Loading label="Loading top flaky tests…" />}
+      {topFlaky.error && (
+        <ErrorState
+          message={topFlaky.error.message}
+          requestId={topFlaky.error.requestId}
+          onRetry={topFlaky.retry}
+        />
+      )}
+      {topFlaky.data && <TopFlakyBars tests={topFlaky.data.items} />}
+
+      <h2>Flaky test ranking</h2>
+      <FlakyTable
+        project_id={filters.projectId}
+        branch={filters.branch}
+        minScore={filters.minScore}
+        pageSize={10}
+      />
     </section>
   );
 }
