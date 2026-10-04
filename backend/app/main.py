@@ -7,6 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
+from app.api.errors import register_error_handlers
+from app.api.runs import router as runs_router
 from app.core.config import get_settings
 from app.core.logging import clear_request_id, get_logger, set_request_id, setup_logging
 
@@ -43,6 +45,9 @@ def create_app() -> FastAPI:
     def health() -> dict[str, str]:
         logger.info("health check")
         return {"status": "ok"}
+
+    register_error_handlers(application)
+    application.include_router(runs_router)
 
     return application
 
