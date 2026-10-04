@@ -9,6 +9,7 @@ from sqlalchemy import DateTime, ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.ingestion.identity import MAX_UNIQUE_KEY_CHARS
 
 if TYPE_CHECKING:
     from app.models.project import Project
@@ -33,7 +34,9 @@ class TestCase(Base):
     classname: Mapped[str] = mapped_column(String(1024), nullable=False)
     test_name: Mapped[str] = mapped_column(String(1024), nullable=False)
     # Logical identity: "project::classname::test_name" (project resolved by name).
-    unique_key: Mapped[str] = mapped_column(String(2048), unique=True, nullable=False, index=True)
+    unique_key: Mapped[str] = mapped_column(
+        String(MAX_UNIQUE_KEY_CHARS), unique=True, nullable=False, index=True
+    )
     first_seen_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),

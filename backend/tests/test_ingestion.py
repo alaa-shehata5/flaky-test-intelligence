@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -12,7 +13,7 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.ingestion.identity import build_unique_key
 from app.ingestion.parser import JUnitParseError, parse_junit
-from app.ingestion.schemas import TestRunResult
+from app.ingestion.schemas import TestCaseResult, TestRunResult
 from app.ingestion.service import DuplicateRunError, persist_run
 from app.main import create_app
 from app.models import Project, TestCase, TestExecution, TestRun
@@ -119,6 +120,25 @@ def test_identity_rules():
     assert build_unique_key("p", "a.B", "t") == "p::a.B::t"
     assert build_unique_key("p", "a.B", "t") == build_unique_key("p", "a.B", "t")
     assert build_unique_key("p", "a.B", "t1") != build_unique_key("p", "a.B", "t2")
+
+
+def test_run_result_rejects_identity_that_exceeds_database_limit():
+    project = "p" * 255
+    classname = "c" * 1024
+    at_limit = TestCaseResult(
+        classname=classname,
+        test_name="t" * 765,
+        status="passed",
+    )
+    TestRunResult(project=project, run_number=1, cases=[at_limit])
+
+    too_long = TestCaseResult(
+        classname=classname,
+        test_name="t" * 766,
+        status="passed",
+    )
+    with pytest.raises(ValidationError, match="2048-character limit"):
+        TestRunResult(project=project, run_number=2, cases=[too_long])
 
 
 def _run_result(**overrides) -> TestRunResult:

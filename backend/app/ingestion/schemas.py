@@ -8,7 +8,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+from app.ingestion.identity import MAX_UNIQUE_KEY_CHARS, build_unique_key
 
 TestStatus = Literal["passed", "failed", "error", "skipped"]
 
@@ -35,3 +37,14 @@ class TestRunResult(BaseModel):
     workflow_name: str | None = Field(default=None, max_length=255)
     environment: str | None = Field(default=None, max_length=255)
     cases: list[TestCaseResult] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_unique_key_lengths(self) -> TestRunResult:
+        """Keep every persisted logical identity within its database column."""
+        for case in self.cases:
+            key = build_unique_key(self.project, case.classname, case.test_name)
+            if len(key) > MAX_UNIQUE_KEY_CHARS:
+                raise ValueError(
+                    f"test identity exceeds the {MAX_UNIQUE_KEY_CHARS}-character limit"
+                )
+        return self
