@@ -2,13 +2,21 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.analysis.service import analyze_test_case, run_ids_for_branch
-from app.api.common import config_from_settings, get_project_or_404
+from app.analysis.service import analyze_test_case
+from app.api.common import (
+    config_from_settings,
+    get_project_or_404,
+    restrict_cases_to_runs,
+    run_scope_query,
+)
 from app.api.schemas import DashboardSummary
+from app.api.tests import ClassificationFilter
 from app.db.session import get_db
 from app.models import TestCase, TestRun
 
@@ -19,30 +27,37 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 def dashboard_summary(
     project_id: int | None = Query(None),
     branch: str | None = Query(None),
+    workflow_name: str | None = Query(None),
+    environment: str | None = Query(None),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    classification: ClassificationFilter | None = Query(None),
+    minimum_score: float | None = Query(None, ge=0.0, le=100.0),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> DashboardSummary:
     config = config_from_settings()
     if project_id is not None:
         get_project_or_404(db, project_id)
 
-    run_q = select(func.count()).select_from(TestRun)
-    if project_id is not None:
-        run_q = run_q.where(TestRun.project_id == project_id)
-    if branch is not None:
-        run_q = run_q.where(TestRun.branch == branch)
+    run_ids = run_scope_query(
+        project_id=project_id,
+        branch=branch,
+        workflow_name=workflow_name,
+        environment=environment,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    run_q = select(func.count()).select_from(TestRun).where(TestRun.id.in_(run_ids))
     total_runs = db.scalar(run_q) or 0
 
     case_q = select(TestCase).order_by(TestCase.id)
     if project_id is not None:
         case_q = case_q.where(TestCase.project_id == project_id)
+    has_run_filter = any((branch, workflow_name, environment, date_from, date_to))
+    scoped_run_ids = run_ids if has_run_filter else None
+    if has_run_filter:
+        case_q = restrict_cases_to_runs(case_q, run_ids)
     cases = list(db.scalars(case_q))
-
-    run_ids: list[int] | None = None
-    if branch is not None:
-        if project_id is not None:
-            run_ids = run_ids_for_branch(db, project_id, branch)
-        else:
-            run_ids = list(db.scalars(select(TestRun.id).where(TestRun.branch == branch)))
 
     counts = {
         "STABLE": 0,
@@ -56,8 +71,12 @@ def dashboard_summary(
     pass_rates: list[float] = []
     visible = 0
     for case in cases:
-        analysis = analyze_test_case(db, case.id, config, run_ids)
-        if branch is not None and analysis.sample_size == 0:
+        analysis = analyze_test_case(db, case.id, config, scoped_run_ids)
+        if has_run_filter and analysis.sample_size == 0:
+            continue
+        if classification is not None and analysis.classification != classification:
+            continue
+        if minimum_score is not None and analysis.flakiness_score < minimum_score:
             continue
         visible += 1
         counts[analysis.classification] += 1

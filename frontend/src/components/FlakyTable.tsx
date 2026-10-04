@@ -29,6 +29,11 @@ type SortValue = (typeof SORTS)[number]['value'];
 export interface FlakyTableFilters {
   project_id?: number;
   branch?: string;
+  workflow_name?: string;
+  environment?: string;
+  date_from?: string;
+  date_to?: string;
+  classificationFilter?: Classification | '';
   minScore?: number;
   showControls?: boolean;
   pageSize?: number;
@@ -39,35 +44,77 @@ const DEFAULT_PAGE_SIZE = 15;
 export function FlakyTable({
   project_id,
   branch,
+  workflow_name,
+  environment,
+  date_from,
+  date_to,
+  classificationFilter,
   minScore,
   showControls = true,
   pageSize = DEFAULT_PAGE_SIZE,
 }: FlakyTableFilters) {
   const [query, setQuery] = useState('');
-  const [classification, setClassification] = useState<Classification | ''>('');
+  const [localClassification, setLocalClassification] = useState<Classification | ''>('');
   const [sort, setSort] = useState<SortValue>('score_desc');
   const [page, setPage] = useState(0);
+  const classification = classificationFilter ?? localClassification;
+
+  // Reset to the first page whenever the scope changes. This render-phase
+  // adjustment (re-render and bail out) is the documented alternative to
+  // resetting inside an effect.
+  const scopeKey = [
+    project_id,
+    branch,
+    workflow_name,
+    environment,
+    date_from,
+    date_to,
+    classification,
+    minScore,
+    query,
+    sort,
+    pageSize,
+  ].join('|');
+  const [prevScopeKey, setPrevScopeKey] = useState(scopeKey);
+  if (prevScopeKey !== scopeKey) {
+    setPrevScopeKey(scopeKey);
+    setPage(0);
+  }
 
   const { data, loading, error, retry } = useApi(
     () =>
       listFlakyTests({
         project_id,
         branch,
+        workflow_name,
+        environment,
+        date_from,
+        date_to,
         classification: classification || undefined,
         minimum_score: minScore,
+        q: query || undefined,
         sort,
-        limit: 200,
+        limit: pageSize,
+        offset: page * pageSize,
       }),
-    [project_id, branch, classification, minScore, sort],
+    [
+      project_id,
+      branch,
+      workflow_name,
+      environment,
+      date_from,
+      date_to,
+      classification,
+      minScore,
+      query,
+      sort,
+      page,
+      pageSize,
+    ],
   );
 
-  // Client-side search so typing never refetches; ranking stays server-side.
-  const filtered = (data?.items ?? []).filter(
-    (test) =>
-      !query || `${test.classname} ${test.test_name}`.toLowerCase().includes(query.toLowerCase()),
-  );
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const pageItems = filtered.slice(page * pageSize, (page + 1) * pageSize);
+  const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / pageSize));
+  const pageItems = data?.items ?? [];
 
   return (
     <div>
@@ -83,20 +130,22 @@ export function FlakyTable({
             }}
             aria-label="Search flaky tests"
           />
-          <select
-            value={classification}
-            onChange={(event) => {
-              setClassification(event.target.value as Classification | '');
-              setPage(0);
-            }}
-            aria-label="Filter by classification"
-          >
-            {CLASSIFICATIONS.map((value) => (
-              <option key={value || 'all'} value={value}>
-                {value || 'All classifications'}
-              </option>
-            ))}
-          </select>
+          {classificationFilter === undefined && (
+            <select
+              value={localClassification}
+              onChange={(event) => {
+                setLocalClassification(event.target.value as Classification | '');
+                setPage(0);
+              }}
+              aria-label="Filter by classification"
+            >
+              {CLASSIFICATIONS.map((value) => (
+                <option key={value || 'all'} value={value}>
+                  {value || 'All classifications'}
+                </option>
+              ))}
+            </select>
+          )}
           <select
             value={sort}
             onChange={(event) => setSort(event.target.value as SortValue)}
@@ -113,7 +162,7 @@ export function FlakyTable({
 
       {loading && <Loading label="Loading flaky tests…" />}
       {error && <ErrorState message={error.message} requestId={error.requestId} onRetry={retry} />}
-      {data && filtered.length === 0 && (
+      {data && data.total === 0 && (
         <EmptyState message="No flaky tests match the current filters." />
       )}
       {pageItems.length > 0 && (
@@ -126,8 +175,10 @@ export function FlakyTable({
                 <th>Classification</th>
                 <th>Score</th>
                 <th>Pass rate</th>
+                <th>Failure rate</th>
                 <th>Runs</th>
                 <th>Avg duration</th>
+                <th>Last seen</th>
                 <th>Trend</th>
               </tr>
             </thead>
@@ -145,9 +196,17 @@ export function FlakyTable({
                   </td>
                   <td>{test.flakiness_score.toFixed(1)}</td>
                   <td>{(test.pass_rate * 100).toFixed(1)}%</td>
+                  <td>{(test.failure_rate * 100).toFixed(1)}%</td>
                   <td>{test.sample_size}</td>
                   <td>{test.avg_duration.toFixed(2)}s</td>
-                  <td>{test.newly_flaky ? '↗ regressing' : '→'}</td>
+                  <td>{new Date(test.last_seen_at).toLocaleDateString()}</td>
+                  <td>
+                    {test.newly_flaky || test.score_delta > 1
+                      ? '↗ worsening'
+                      : test.score_delta < -1
+                        ? '↘ improving'
+                        : '→ stable'}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -157,7 +216,7 @@ export function FlakyTable({
               Previous
             </button>
             <span>
-              Page {page + 1} of {totalPages} ({filtered.length} tests)
+              Page {page + 1} of {totalPages} ({data?.total ?? 0} tests)
             </span>
             <button
               type="button"

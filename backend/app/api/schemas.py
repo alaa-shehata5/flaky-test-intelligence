@@ -67,7 +67,10 @@ class TestListItem(BaseModel):
     classification: Classification
     flakiness_score: float
     pass_rate: float
+    failure_rate: float
     sample_size: int
+    pass_rate_delta: float
+    score_delta: float
     avg_duration: float
     last_seen_at: datetime
     newly_flaky: bool

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.common import get_project_or_404
+from app.api.common import get_project_or_404, run_scope_query
 from app.api.errors import ApiError
 from app.api.schemas import RunListOut, RunOut
 from app.db.session import get_db
@@ -50,19 +52,27 @@ def _to_out(run: TestRun, project_name: str) -> RunOut:
 def list_runs(
     project_id: int | None = Query(None),
     branch: str | None = Query(None),
+    workflow_name: str | None = Query(None),
+    environment: str | None = Query(None),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),  # noqa: B008
 ) -> RunListOut:
     query = select(TestRun, Project.name).join(Project, Project.id == TestRun.project_id)
-    count_q = select(func.count()).select_from(TestRun)
+    run_ids = run_scope_query(
+        project_id=project_id,
+        branch=branch,
+        workflow_name=workflow_name,
+        environment=environment,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    query = query.where(TestRun.id.in_(run_ids))
+    count_q = select(func.count()).select_from(TestRun).where(TestRun.id.in_(run_ids))
     if project_id is not None:
         get_project_or_404(db, project_id)
-        query = query.where(TestRun.project_id == project_id)
-        count_q = count_q.where(TestRun.project_id == project_id)
-    if branch is not None:
-        query = query.where(TestRun.branch == branch)
-        count_q = count_q.where(TestRun.branch == branch)
     total = db.scalar(count_q) or 0
     rows = db.execute(query.order_by(TestRun.id.desc()).limit(limit).offset(offset)).all()
     return RunListOut(

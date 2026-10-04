@@ -111,7 +111,10 @@ export function PassRateTrend({ runs }: { runs: TestRun[] }) {
     .sort((a, b) => a.run_number - b.run_number)
     .map((run) => ({
       run: `#${run.run_number}`,
-      passRate: run.total_tests === 0 ? 0 : (run.passed_tests / run.total_tests) * 100,
+      passRate:
+        run.total_tests === run.skipped_tests
+          ? 0
+          : (run.passed_tests / (run.total_tests - run.skipped_tests)) * 100,
     }));
   if (data.length === 0) return null;
   return (
@@ -134,7 +137,10 @@ export function DurationTrend({ runs }: { runs: TestRun[] }) {
     .sort((a, b) => a.run_number - b.run_number)
     .map((run) => ({
       run: `#${run.run_number}`,
-      avgDuration: run.total_tests === 0 ? 0 : run.total_duration / run.total_tests,
+      avgDuration:
+        run.total_tests === run.skipped_tests
+          ? 0
+          : run.total_duration / (run.total_tests - run.skipped_tests),
     }));
   if (data.length === 0) return null;
   return (

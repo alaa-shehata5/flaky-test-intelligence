@@ -2,18 +2,26 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.analysis.service import analyze_test_case, run_ids_for_branch, test_history
-from app.api.common import config_from_settings, scoped_cases, to_detail, to_list_item
+from app.analysis.service import analyze_test_case, test_history
+from app.api.common import (
+    config_from_settings,
+    restrict_cases_to_runs,
+    run_scope_query,
+    scoped_case_query,
+    to_detail,
+    to_list_item,
+)
 from app.api.errors import ApiError
 from app.api.schemas import HistoryPoint, TestDetailOut, TestListOut
 from app.db.session import get_db
-from app.models import Project, TestCase, TestRun
+from app.models import Project, TestCase
 
 router = APIRouter(prefix="/api/tests", tags=["tests"])
 
@@ -31,6 +39,10 @@ ClassificationFilter = Literal[
 def list_tests(
     project_id: int | None = Query(None),
     branch: str | None = Query(None),
+    workflow_name: str | None = Query(None),
+    environment: str | None = Query(None),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
     suite: str | None = Query(None),
     classification: ClassificationFilter | None = Query(None),
     minimum_score: float | None = Query(None, ge=0.0, le=100.0),
@@ -40,30 +52,56 @@ def list_tests(
     db: Session = Depends(get_db),  # noqa: B008
 ) -> TestListOut:
     config = config_from_settings()
-    cases = scoped_cases(db, project_id)
+    query = scoped_case_query(db, project_id)
     if suite is not None:
-        cases = [c for c in cases if c.suite_name == suite]
-    run_ids: list[int] | None = None
-    if branch is not None:
-        if project_id is not None:
-            run_ids = run_ids_for_branch(db, project_id, branch)
-        else:
-            run_ids = list(db.scalars(select(TestRun.id).where(TestRun.branch == branch)))
+        query = query.where(TestCase.suite_name == suite)
+    if q is not None:
+        query = query.where(
+            or_(TestCase.classname.ilike(f"%{q}%"), TestCase.test_name.ilike(f"%{q}%"))
+        )
+    run_ids = run_scope_query(
+        project_id=project_id,
+        branch=branch,
+        workflow_name=workflow_name,
+        environment=environment,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    if any((branch, workflow_name, environment, date_from, date_to)):
+        query = restrict_cases_to_runs(query, run_ids)
+    else:
+        run_ids = None
     project_names = {p.id: p.name for p in db.scalars(select(Project)).all()}
+
+    # Classification and score are computed values, so filtered requests must
+    # inspect candidates before they can page. Keep only the requested slice in
+    # memory. When those filters are absent, use native database count/pagination.
+    if classification is None and minimum_score is None:
+        count_query = select(func.count()).select_from(query.order_by(None).subquery())
+        total = db.scalar(count_query) or 0
+        page_cases = db.scalars(query.limit(limit).offset(offset)).all()
+        items = [
+            to_list_item(
+                case,
+                project_names[case.project_id],
+                analyze_test_case(db, case.id, config, run_ids),
+            )
+            for case in page_cases
+        ]
+        return TestListOut(items=items, total=total, limit=limit, offset=offset)
+
     items = []
-    for case in cases:
+    total = 0
+    for case in db.scalars(query.execution_options(yield_per=100)):
         analysis = analyze_test_case(db, case.id, config, run_ids)
         if classification is not None and analysis.classification != classification:
             continue
         if minimum_score is not None and analysis.flakiness_score < minimum_score:
             continue
-        if q is not None and q.lower() not in (f"{case.classname} {case.test_name}".lower()):
-            continue
-        items.append(to_list_item(case, project_names[case.project_id], analysis))
-    total = len(items)
-    return TestListOut(
-        items=items[offset : offset + limit], total=total, limit=limit, offset=offset
-    )
+        total += 1
+        if offset <= total - 1 < offset + limit:
+            items.append(to_list_item(case, project_names[case.project_id], analysis))
+    return TestListOut(items=items, total=total, limit=limit, offset=offset)
 
 
 @router.get("/{test_id}", response_model=TestDetailOut)

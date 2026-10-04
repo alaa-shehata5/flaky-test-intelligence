@@ -85,7 +85,10 @@ function baseItem(overrides: Partial<TestListItem>): TestListItem {
     classification: 'STABLE',
     flakiness_score: 0,
     pass_rate: 1,
+    failure_rate: 0,
     sample_size: 50,
+    pass_rate_delta: 0,
+    score_delta: 0,
     avg_duration: 0.3,
     last_seen_at: '2026-01-01T00:00:00Z',
     newly_flaky: false,
@@ -102,6 +105,7 @@ export const sampleFlakyItems: TestListItem[] = [
     classification: 'HIGHLY_FLAKY',
     flakiness_score: 82.03,
     pass_rate: 0.5,
+    failure_rate: 0.5,
   }),
   baseItem({
     test_case_id: 19,
@@ -112,6 +116,7 @@ export const sampleFlakyItems: TestListItem[] = [
     classification: 'SUSPECTED_FLAKY',
     flakiness_score: 59.64,
     pass_rate: 0.66,
+    failure_rate: 0.34,
     newly_flaky: true,
   }),
 ];

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
 from app.analysis import classification, scoring, statistics
@@ -170,7 +170,7 @@ def analyze_test_case(
     session: Session,
     test_case_id: int,
     config: AnalysisConfig | None = None,
-    run_ids: Collection[int] | None = None,
+    run_ids: Collection[int] | Select[tuple[int]] | None = None,
 ) -> TestAnalysis:
     test_case = session.get(TestCase, test_case_id)
     if test_case is None:
@@ -227,15 +227,6 @@ def analyze_project(
         select(TestCase.id).where(TestCase.project_id == project_id).order_by(TestCase.id)
     ).all()
     return [analyze_test_case(session, case_id, config, run_ids) for case_id in case_ids]
-
-
-def run_ids_for_branch(session: Session, project_id: int, branch: str) -> list[int]:
-    """Run ids of one project's branch (empty when the branch has no runs)."""
-    return list(
-        session.scalars(
-            select(TestRun.id).where(TestRun.project_id == project_id, TestRun.branch == branch)
-        )
-    )
 
 
 @dataclass(frozen=True)

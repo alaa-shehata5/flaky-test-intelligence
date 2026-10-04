@@ -65,7 +65,10 @@ export interface TestListItem {
   classification: Classification;
   flakiness_score: number;
   pass_rate: number;
+  failure_rate: number;
   sample_size: number;
+  pass_rate_delta: number;
+  score_delta: number;
   avg_duration: number;
   last_seen_at: string;
   newly_flaky: boolean;

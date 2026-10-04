@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -163,6 +165,9 @@ def test_tests_list_and_filters(client: TestClient):
     assert flaky["total"] == 1
     assert flaky["items"][0]["test_name"] == "t_flaky"
     assert flaky["items"][0]["flakiness_score"] >= 70.0
+    assert flaky["items"][0]["failure_rate"] == 0.5
+    assert "pass_rate_delta" in flaky["items"][0]
+    assert "score_delta" in flaky["items"][0]
 
     suite = client.get("/api/tests", params={"project_id": p1, "suite": "s"}).json()
     assert suite["total"] == 3
@@ -246,3 +251,31 @@ def test_dashboard_summary(client: TestClient):
 
     missing = client.get("/api/dashboard/summary", params={"project_id": 9999})
     assert missing.status_code == 404
+
+
+def test_extended_scope_filters(client: TestClient):
+    p1 = _project_id(client, "api-p1")
+    scoped = {"project_id": p1, "branch": "main"}
+
+    only_flaky = client.get(
+        "/api/dashboard/summary", params={**scoped, "classification": "HIGHLY_FLAKY"}
+    ).json()
+    assert only_flaky["total_tests"] == 1
+    assert only_flaky["highly_flaky_tests"] == 1
+
+    high_bar = client.get(
+        "/api/dashboard/summary", params={**scoped, "minimum_score": 99.99}
+    ).json()
+    assert high_bar["total_tests"] == 0
+
+    by_name = client.get("/api/flaky-tests", params={**scoped, "q": "FLAKY"}).json()
+    assert by_name["total"] == 1
+
+    by_workflow = client.get(
+        "/api/runs", params={"project_id": p1, "workflow_name": "does-not-exist"}
+    ).json()
+    assert by_workflow["total"] == 0
+
+    today = date.today().isoformat()
+    by_date = client.get("/api/runs", params={"project_id": p1, "date_from": today}).json()
+    assert by_date["total"] == 7

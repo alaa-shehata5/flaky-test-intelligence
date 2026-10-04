@@ -15,6 +15,10 @@ import type {
 export type TestFilters = {
   project_id?: number;
   branch?: string;
+  workflow_name?: string;
+  environment?: string;
+  date_from?: string;
+  date_to?: string;
   suite?: string;
   classification?: Classification;
   minimum_score?: number;
@@ -30,6 +34,10 @@ export type FlakyFilters = TestFilters & {
 export type RunFilters = {
   project_id?: number;
   branch?: string;
+  workflow_name?: string;
+  environment?: string;
+  date_from?: string;
+  date_to?: string;
   limit?: number;
   offset?: number;
 };
@@ -37,6 +45,12 @@ export type RunFilters = {
 export type SummaryFilters = {
   project_id?: number;
   branch?: string;
+  workflow_name?: string;
+  environment?: string;
+  date_from?: string;
+  date_to?: string;
+  classification?: Classification;
+  minimum_score?: number;
 };
 
 export function listProjects(): Promise<ProjectList> {
